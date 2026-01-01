@@ -1,0 +1,12 @@
+# 媒体格式转换和语音识别项目依赖
+
+# HTTP 请求库
+requests>=2.31.0
+
+# 日志库
+loguru>=0.7.0
+
+# 注意：需要额外安装 ffmpeg
+# Windows: choco install ffmpeg
+# macOS: brew install ffmpeg
+# Linux: sudo apt install ffmpeg
