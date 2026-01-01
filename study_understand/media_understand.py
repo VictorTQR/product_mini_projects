@@ -1,3 +1,4 @@
+from multiprocessing import context
 import subprocess
 import os
 from pathlib import Path
@@ -16,7 +17,7 @@ logger.add(
 )
 
 
-def call_asr_with_format(media_file_path: str, provider: str = "siliconflow") -> str:
+def call_asr_with_format(media_file_path: str, provider: str = "siliconflow", model: str = "FunAudioLLM/SenseVoiceSmall") -> str:
     """
     调用 ASR 服务对媒体文件进行语音识别
     :param media_file_path: 媒体文件路径
@@ -35,6 +36,17 @@ def call_asr_with_format(media_file_path: str, provider: str = "siliconflow") ->
         logger.error(f"不支持的 ASR 服务提供商: {provider}")
         raise ValueError(f"不支持的 ASR 服务提供商: {provider}")
 
+def call_graph(article: str) -> dict:
+    """
+    调用文章阅读分析工作流
+    :param article: 文章文本
+    :return: 分析结果
+    """
+    from src.graphs.article_read_graph import create_article_read_graph
+    graph = create_article_read_graph().compile()
+    result = graph.invoke({"article": article}, context={})
+    return result
+
 
 def main(source_file: str):
     """
@@ -44,12 +56,18 @@ def main(source_file: str):
     logger.info(f"开始处理文件: {source_file}")
 
     try:
-        result = call_asr_with_format(source_file, provider="siliconflow")
+        result = call_asr_with_format(source_file, provider="siliconflow", model="TeleAI/TeleSpeechASR")
         print(result)
         logger.info("文件处理完成")
     except Exception as e:
         logger.error(f"处理失败: {e}")
         raise
+
+    # 调用文章阅读分析工作流
+    analysis_result = call_graph(result)
+    print(analysis_result)
+    logger.info("文章阅读分析完成")
+
 
 
 if __name__ == "__main__":

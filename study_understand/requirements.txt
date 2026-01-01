@@ -6,6 +6,16 @@ requests>=2.31.0
 # 日志库
 loguru>=0.7.0
 
+# LangGraph 和 LangChain
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-core>=0.3.0
+langfuse>=2.0.0
+
+# 环境变量管理
+python-dotenv>=1.0.0
+
 # 注意：需要额外安装 ffmpeg
 # Windows: choco install ffmpeg
 # macOS: brew install ffmpeg
