@@ -17,6 +17,10 @@ logger.add(
 
 class SiliconFlowASR:
     """SiliconFlow ASR 服务客户端"""
+    supported_models = [
+        "FunAudioLLM/SenseVoiceSmall",
+        "TeleAI/TeleSpeechASR"
+    ]
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -39,6 +43,14 @@ class SiliconFlowASR:
         self.headers = {
             "Authorization": f"Bearer {self.api_key}"
         }
+
+    def _check_model(self, model: str):
+        """检查模型是否支持"""
+        if model not in self.supported_models:
+            logger.error(f"模型 {model} 不支持")
+            raise ValueError(
+                f"模型 {model} 不支持。请选择以下模型之一：{self.supported_models}"
+            )
 
     def transcribe(
         self,
@@ -63,7 +75,10 @@ class SiliconFlowASR:
             ValueError: API 返回错误
         """
         logger.info(f"开始语音识别: {audio_file_path}, 模型: {model}")
-
+        
+        # 检查模型是否支持
+        self._check_model(model)
+        
         # 检查文件是否存在
         if not os.path.exists(audio_file_path):
             logger.error(f"音频文件不存在: {audio_file_path}")
