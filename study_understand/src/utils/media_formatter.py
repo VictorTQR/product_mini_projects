@@ -71,7 +71,9 @@ def format_media_file(source_file_path: str, output_file_path: str = None) -> st
             command,
             check=True,
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',  # 指定编码
+            errors='ignore'    # 忽略编码错误
         )
 
         logger.success(f"转换成功: {source_file_path} -> {output_file_path}")
