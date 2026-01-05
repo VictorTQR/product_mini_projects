@@ -2,13 +2,36 @@ import asyncio
 from loguru import logger
 import asyncio
 import time
+import re
 
 from playwright.async_api import expect
 
-from .base import BaseCrawler
 from .tools.browser_launcher import ManualChromeConnector
 
-class XHSCrawler(BaseCrawler):
+def extract_date(text: str):
+    """从文本中提取日期"""
+    match = re.search(r"\d{4}-\d{2}-\d{2}", text)
+    if match:
+        return match.group(0)
+    
+    day_before_match = re.search(r"\d{1,2}天前", text)
+    if day_before_match:
+        day = int(day_before_match.group(0).replace("天前", ""))
+        publish_date = time.strftime("%Y-%m-%d", time.localtime(time.mktime(time.localtime()) - day * 24 * 60 * 60))
+        return f"{publish_date}"
+    
+    hours_before_match = re.search(r"\d{1,2}小时前", text)
+    if hours_before_match:
+        publish_date = time.strftime("%Y-%m-%d", time.localtime())
+        return f"{publish_date}"
+
+    if re.search(r"刚刚", text):
+        return time.strftime("%Y-%m-%d", time.localtime())
+
+    if re.search(r"昨天", text):
+        return time.strftime("%Y-%m-%d", time.localtime(time.mktime(time.localtime()) - 24 * 60 * 60))
+
+class XHSCrawler:
     """小红书爬虫"""
     def __init__(self, base_url: str = "https://www.xiaohongshu.com"):
         self.base_url = base_url
@@ -78,7 +101,8 @@ class XHSCrawler(BaseCrawler):
         await self.page.wait_for_selector("div.note-content")
 
         # id
-        
+        logger.info(f"笔记URL: {note_url}")
+        note_id = re.search(r"/(\w+)\?", note_url).group(1)
 
         # 媒体
         media_swipers = await self.page.locator("div.swiper-slide").all()
@@ -90,6 +114,20 @@ class XHSCrawler(BaseCrawler):
 
         # 内容
         content = await self.page.locator("div.note-content").inner_text()
+
+        # tag
+        tags = await self.page.locator("div.note-content a#hash-tag").all()
+        tag_list = []
+        for tag in tags:
+            tag_list.append(await tag.inner_text())
+
+        # 日期
+        text = await self.page.locator("div.bottom-container span.date").inner_text()
+        date = extract_date(text)
+        # 数据
+        like_count = await self.page.locator("div.interact-container span.like-wrapper span.count").inner_text()
+        collect_count = await self.page.locator("div.interact-container span.collect-wrapper span.count").inner_text()
+        comment_count = await self.page.locator("div.interact-container span.chat-wrapper span.count").inner_text()
 
         # 评论
         comments = []
@@ -141,12 +179,27 @@ class XHSCrawler(BaseCrawler):
 
             for item in comment_items:
                 comment = await item.locator("div.content").inner_text()
-                comments.append(comment)
+                date = extract_date(await item.locator("div.date").inner_text())
+                comment_like_count = await item.locator("div.like span.count").inner_text()
+                if comment_like_count == "赞":
+                    comment_like_count = 0
+
+                comments.append({
+                    "date": date,
+                    "like_count": comment_like_count,
+                    "comment_content": comment
+                })
 
         return {
+            "id": note_id,
             "media": media_contents,
             "content": content,
-            "comments": comments
+            "like_count": like_count,
+            "collect_count": collect_count,
+            "comment_count": comment_count,
+            "comments": comments,
+            "tag": tag_list,
+            "publish_date": date,
         }
 
     async def close(self):
