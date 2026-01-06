@@ -21,7 +21,8 @@ async def use_xhs_crawler(keyword: str, save_file: str = None):
         data = await crawler.catch_item_content(item["url"])
         datas.append(data)
 
-        await asyncio.sleep(2)
+        sleep_time = random.uniform(5, 10)
+        await asyncio.sleep(sleep_time)
     
     if save_file:
         with open(save_file, "w", encoding="utf-8") as f:
