@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/x-sender@1.2.1/lib/XSender.umd.js"></script>
+    <link href="//unpkg.com/layui@2.13.3/dist/css/layui.css" rel="stylesheet">
+    <script src="https://unpkg.com/hook-fetch@2.3.0/dist/umd/index.js"></script>
+    <style>
+        #chat-container{
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .messages-container{
+            flex: 1;
+            overflow: auto;
+        }
+        .input-area{
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        #send-btn{
+            height: 36px;
+            width: 36px;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            z-index: 100;
+            background-color: #1e9fff;
+            border: none;
+        }
+        .chat-area-wrap{
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div class="messages-container">
+
+        </div>
+        <div class="input-area">
+            <div id="input-box"></div>
+            <button id="send-btn" type="button">
+                <i class="layui-icon layui-icon-release" style="color: white;line-height: 36px;"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const senderOption = {
+            chatStyle: {
+                border: "1px solid #ccc",
+                minHeight: "80px",
+                maxHeight: "100px",
+            }
+        }
+        const sender = new window.XSender(
+            document.getElementById("input-box"),
+            senderOption
+        )
+
+
+        const sendBtn = document.getElementById("send-btn")
+        sendBtn.addEventListener("click", async () => {
+            if (sender.isEmpty(true)) return
+            const userInput = sender.getText()
+
+            try {
+                const response = await fetch("http://localhost:8000/chat/stream", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message: userInput })
+                })
+
+                if (!response.ok) {
+                    console.error("请求失败:", response.status)
+                    return
+                }
+
+                const reader = response.body.getReader()
+                const decoder = new TextDecoder()
+
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    const chunk = decoder.decode(value, { stream: true })
+                    console.log("收到数据:", chunk)
+
+                    // 解析 SSE 格式数据
+                    const lines = chunk.split('\n').filter(line => line.trim())
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6)
+                            try {
+                                const parsed = JSON.parse(data)
+                                console.log("解析数据:", parsed)
+                            } catch (e) {
+                                console.log("原始数据:", data)
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("请求失败:", error)
+            }
+        })
+    </script>
+</body>
+</html>

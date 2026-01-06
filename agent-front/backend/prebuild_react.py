@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
@@ -12,6 +13,15 @@ from loguru import logger
 load_dotenv()
 
 app = FastAPI()
+
+# 添加 CORS 中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许所有来源（生产环境建议限制）
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 示例工具
 @tool
@@ -47,7 +57,7 @@ async def agent_stream_generator(request: ChatRequest):
                 msg = update.get("messages")[-1]
                 if msg:
                     yield f"data: {json.dumps({'type': 'step', 'node': node, 'message': msg.content})}\n\n"
-    yield "data: {json.dumps({'type': 'end'})}\n\n"
+    yield f"data: {json.dumps({'type': 'end'})}\n\n"
 
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
@@ -60,6 +70,10 @@ async def chat_stream(request: ChatRequest):
             "Access-Control-Allow-Origin": "*",
         }
     )
+
+@app.post("/chat")
+async def chat_completions(request: ChatRequest):
+    return {"message": "Hello, World!"}
 
 if __name__ == "__main__":
     import uvicorn
