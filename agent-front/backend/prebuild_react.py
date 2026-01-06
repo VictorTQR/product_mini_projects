@@ -5,6 +5,7 @@ from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
 from pydantic import BaseModel
+from typing import List, Dict
 import json
 import asyncio
 from dotenv import load_dotenv
@@ -38,12 +39,13 @@ agent = create_agent(
 )
 
 class ChatRequest(BaseModel):
-    message: str
+    messages: List[Dict[str, str]]  # [{"role": "user", "content": "..."}]
 
 async def agent_stream_generator(request: ChatRequest):
     """生成 SSE 格式的 agent stream"""
+    # 直接使用前端传来的消息列表
     async for stream_mode, chunk in agent.astream(
-        {"messages": [{"role": "user", "content": request.message}]},
+        {"messages": request.messages},
         stream_mode=["messages", "updates"]  # 多模式：tokens + 步骤
     ):
         if stream_mode == "messages":
