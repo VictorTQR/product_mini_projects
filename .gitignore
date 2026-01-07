@@ -210,3 +210,4 @@ __marimo__/
 .claude/
 chrome_profile/
 *.jsonl
+output/

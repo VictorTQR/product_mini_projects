@@ -35,9 +35,10 @@ def updates_mode(messages: list):
 
 def messages_mode(messages: list):
     for token, metadata in agent.stream({"messages": messages}, stream_mode="messages"):
-        print(f"node: {metadata['langgraph_node']}")
-        print(f"content: {token.content_blocks}")
-        print("\n")
+        if token.content:
+            print(f"node: {metadata['langgraph_node']}")
+            print(f"content: {token.content_blocks}")
+            print("\n")
 
 def updates_and_messages_mode(messages: list):
     full_message = ""
@@ -51,4 +52,5 @@ def updates_and_messages_mode(messages: list):
             for node, update in data.items():
                 print(f"\n步骤 {node} 完成: {update['messages'][-1].content}")
 
-updates_and_messages_mode(messages)
+messages_mode(messages)
+# updates_and_messages_mode(messages)
