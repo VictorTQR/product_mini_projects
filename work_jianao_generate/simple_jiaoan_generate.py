@@ -87,6 +87,22 @@ def save_result_to_json(result: dict, output_path: str):
         json.dump(result, f, ensure_ascii=False, indent=2)
     logger.info(f"已将结果保存到 {output_path}")
 
+
+def load_result_from_json(json_path: str) -> dict:
+    """
+    从JSON文件加载教案结果
+
+    Args:
+        json_path: JSON文件路径
+
+    Returns:
+        教案结果字典
+    """
+    with open(json_path, 'r', encoding='utf-8') as f:
+        result = json.load(f)
+    return result
+
+
 def save_result_to_word(result: dict, template_word_path: str, output_word_path: str):
     """
     将教案结果保存为Word文档
@@ -117,32 +133,51 @@ def generate_and_save_single_lesson(lesson_info: dict, lesson_index: int, output
         lesson_index: 课次序号
         output_dir: 输出目录路径
         template_word_path: Word模板文件路径
-        model: 模型名称
+        model: 模型名称，默认"glm-4-flash"
 
     Returns:
         生成的教案结果字典
     """
     print(f"\n{'='*60}")
-    print(f"正在生成第 {lesson_index} 个教案: {lesson_info['course_name']} - {lesson_info['lesson_name']}")
+    print(f"正在处理第 {lesson_index} 个教案: {lesson_info['course_name']} - {lesson_info['lesson_name']}")
     print(f"{'='*60}")
-
-    # 生成教案
-    result = generate_lesson_plan_simple(lesson_info, model)
 
     # 生成输出文件名
     safe_lesson_name = lesson_info['lesson_name'].replace('/', '_').replace('\\', '_').replace(':', '_')
     base_filename = f"{lesson_index}_{safe_lesson_name}"
 
-    save_dir = os.path.join(output_dir, f"{lesson_info['course_name']}")
-    # 保存JSON文件
-    json_output_path = os.path.join(save_dir, "json", f"{base_filename}.json")
-    save_result_to_json(result, json_output_path)
-    print(f"✓ JSON文件已保存: {json_output_path}")
+    course_name = lesson_info["course_name"]
+    json_output_path = os.path.join(output_dir, course_name, "json", f"{base_filename}.json")
+    word_output_path = os.path.join(output_dir, course_name, "word", f"{base_filename}.docx")
 
-    # 保存Word文档
-    word_output_path = os.path.join(save_dir, "word", f"{base_filename}.docx")
-    save_result_to_word(result, template_word_path, word_output_path)
-    print(f"✓ Word文档已保存: {word_output_path}")
+    # 检查文件是否存在
+    json_exists = os.path.exists(json_output_path)
+    word_exists = os.path.exists(word_output_path)
+
+    if json_exists and word_exists:
+        # 两个文件都存在，跳过生成
+        print(f"⏭️  教案已存在，跳过生成")
+        print(f"   JSON文件: {json_output_path}")
+        print(f"   Word文档: {word_output_path}")
+        result = load_result_from_json(json_output_path)
+    elif json_exists and not word_exists:
+        # JSON存在但Word不存在，从JSON读取并生成Word
+        print(f"📄 JSON文件已存在，正在读取并生成Word文档")
+        result = load_result_from_json(json_output_path)
+        save_result_to_word(result, template_word_path, word_output_path)
+        print(f"✓ Word文档已保存: {word_output_path}")
+    else:
+        # 两个文件都不存在，执行正常生成流程
+        print(f"🔄 正在生成教案...")
+        result = generate_lesson_plan_simple(lesson_info, model=model)
+        
+        # 保存JSON文件
+        save_result_to_json(result, json_output_path)
+        print(f"✓ JSON文件已保存: {json_output_path}")
+
+        # 保存Word文档
+        save_result_to_word(result, template_word_path, word_output_path)
+        print(f"✓ Word文档已保存: {word_output_path}")
 
     return result
 
@@ -154,7 +189,7 @@ def main(excel_path: str, output_dir: str, template_word_path: str, model: str =
         excel_path: Excel文件路径
         output_dir: 输出目录路径
         template_word_path: Word模板文件路径
-        model: 模型名称
+        model: 模型名称，默认"glm-4-flash"
     """
     print(f"\n{'='*60}")
     print("教案生成工作流启动")
@@ -179,7 +214,7 @@ def main(excel_path: str, output_dir: str, template_word_path: str, model: str =
                 lesson_index=idx,
                 output_dir=output_dir,
                 template_word_path=template_word_path,
-                model=model
+                model=model,
             )
             success_count += 1
         except Exception as e:
@@ -198,17 +233,36 @@ def main(excel_path: str, output_dir: str, template_word_path: str, model: str =
     print(f"{'='*60}\n")
 
 
+def test_generate_lesson_plan_simple():
+    """
+    测试生成教案的简单函数
+    """
+    # 准备测试数据
+    test_lesson_info = {
+        "lesson_index": 1,
+        "course_name": "前端开发",
+        "lesson_name": "HTML基础",
+        "lesson_desc": "介绍HTML的基本结构和标签",
+    }
+    # 调用函数生成教案
+    result = generate_lesson_plan_simple(test_lesson_info)
+    # 检查结果是否包含预期的键
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
 if __name__ == "__main__":
     # 配置参数
-    excel_path = "./assets/信息生成记录表.xlsx"
-    output_dir = "./output_simple"
-    template_word_path = "./assets/简案模板.docx"
-    model = "glm-4-flash"
+    excel_path = "./output/人工智能通识.xlsx"
+    output_dir = "./output/output_workflow"
+    template_word_path = "./output/人工智能通识.docx"
+
+    # 测试生成教案的简单函数
+    # test_generate_lesson_plan_simple()
+    # exit(0)
 
     # 执行主函数
     main(
         excel_path=excel_path,
         output_dir=output_dir,
         template_word_path=template_word_path,
-        model=model
+        model="glm-4-flash"
     )
