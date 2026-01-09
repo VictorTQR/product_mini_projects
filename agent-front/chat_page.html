@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能体聊天</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(var(--border))",
+                        input: "hsl(var(--input))",
+                        ring: "hsl(var(--ring))",
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: {
+                            DEFAULT: "hsl(var(--primary))",
+                            foreground: "hsl(var(--primary-foreground))",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(var(--secondary))",
+                            foreground: "hsl(var(--secondary-foreground))",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(var(--muted))",
+                            foreground: "hsl(var(--muted-foreground))",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(var(--accent))",
+                            foreground: "hsl(var(--accent-foreground))",
+                        },
+                    },
+                    borderRadius: {
+                        lg: "var(--radius)",
+                        md: "calc(var(--radius) - 2px)",
+                        sm: "calc(var(--radius) - 4px)",
+                    },
+                    animation: {
+                        "fade-in": "fadeIn 0.3s ease-out forwards",
+                        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            "0%": { opacity: "0", transform: "translateY(10px)" },
+                            "100%": { opacity: "1", transform: "translateY(0)" },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 240 10% 3.9%;
+            --primary: 240 5.9% 10%;
+            --primary-foreground: 0 0% 98%;
+            --secondary: 240 4.8% 95.9%;
+            --secondary-foreground: 240 5.9% 10%;
+            --muted: 240 4.8% 95.9%;
+            --muted-foreground: 240 3.8% 46.1%;
+            --accent: 240 4.8% 95.9%;
+            --accent-foreground: 240 5.9% 10%;
+            --border: 240 5.9% 90%;
+            --input: 240 5.9% 90%;
+            --ring: 240 5.9% 10%;
+            --radius: 0.5rem;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #e4e4e7;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #d4d4d8;
+        }
+
+        .code-block {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .hidden-content {
+            display: none;
+        }
+        
+        .rotate-icon {
+            transform: rotate(180deg);
+        }
+
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            animation: blink 1s step-end infinite;
+            vertical-align: baseline;
+            font-size: 0.8em;
+            margin-left: 2px;
+        }
+
+        @keyframes blink { 
+            50% { opacity: 0; } 
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground flex flex-col h-screen overflow-hidden antialiased">
+
+    <header class="flex items-center justify-between px-6 py-3 border-b bg-background/50 backdrop-blur-sm z-10 h-16">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm ring-2 ring-background">
+                AI
+            </div>
+            <div>
+                <h1 class="text-base font-semibold tracking-tight">智能体助手</h1>
+                <div class="flex items-center gap-1.5">
+                    <div id="statusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                    <span id="statusText" class="text-xs text-muted-foreground">在线准备就绪</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="hidden sm:flex items-center gap-2">
+            <span class="text-xs font-medium px-2 py-1 rounded-md bg-secondary text-secondary-foreground">
+                v1.0.0
+            </span>
+        </div>
+    </header>
+
+    <main id="chatContainer" class="flex-1 overflow-y-auto w-full max-w-3xl mx-auto p-4 sm:p-6 space-y-6 scroll-smooth">
+        <div class="flex w-full gap-3 animate-fade-in">
+            <div class="w-8 h-8 rounded-full bg-muted flex-shrink-0 flex items-center justify-center text-muted-foreground border">
+                🤖
+            </div>
+            <div class="flex-1 space-y-3">
+                <div class="text-xs text-muted-foreground font-medium">智能体助手</div>
+                <div class="text-sm leading-relaxed text-foreground border rounded-lg p-3 bg-background shadow-sm">
+                    你好！我是一个具备复杂推理能力的智能体。我可以：
+                    <ul class="mt-2 space-y-1 ml-4 list-disc">
+                        <li>展示我的思考过程</li>
+                        <li>调用工具查询天气、计算等</li>
+                        <li>实时流式输出答案</li>
+                    </ul>
+                    <p class="mt-2">试试问我：查询北京的天气</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t bg-background p-4">
+        <div class="max-w-3xl mx-auto relative flex items-end gap-2">
+            <div class="relative flex-1">
+                <textarea 
+                    id="userInput" 
+                    rows="1"
+                    class="flex min-h-[44px] w-full rounded-lg border border-input bg-background px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-hidden transition-all"
+                    placeholder="输入消息... (例如: 查询北京天气)"
+                    oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                    onkeydown="handleEnter(event)"
+                ></textarea>
+            </div>
+            <button 
+                id="sendBtn" 
+                onclick="handleSend()"
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-[44px] px-4 py-2"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                发送
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        const ICONS = {
+            chevronDown: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+            brain: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-4A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-4A2.5 2.5 0 0 0 14.5 2Z"/></svg>',
+            terminal: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+            checkCircle: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+            alertCircle: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+            user: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+            bot: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
+        };
+
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        let isProcessing = false;
+        let messageHistory = []; // 存储对话历史
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text || isProcessing) return;
+
+            // 添加用户消息到历史记录
+            messageHistory.push({
+                role: 'user',
+                content: text
+            });
+
+            addMessage('user', text);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            setAgentStatus('busy');
+
+            const { messageBody } = addAgentMessageSkeleton();
+            const assistantReply = await connectToSSE(messageBody);
+            
+            // 将AI回复添加到历史记录
+            messageHistory.push({
+                role: 'assistant',
+                content: assistantReply
+            });
+        }
+
+        async function connectToSSE(container) {
+            // 使用POST请求发送消息数组
+            const url = API_BASE_URL + '/api/chat/stream';
+            
+            return new Promise(function(resolve, reject) {
+                let textNode = null;
+                let blocks = {};
+                let fullResponse = ''; // 保存完整的AI回复
+
+                // 使用fetch发送POST请求获取SSE流
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: messageHistory
+                    })
+                }).then(response => {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    function readStream() {
+                        return reader.read().then(({ done, value }) => {
+                            if (done) {
+                                return;
+                            }
+
+                            const chunk = decoder.decode(value, { stream: true });
+                            const lines = chunk.split('\n');
+
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    const jsonStr = line.slice(6);
+                                    if (!jsonStr.trim()) continue;
+                                    
+                                    try {
+                                        const data = JSON.parse(jsonStr);
+                                        
+                                        switch (data.type) {
+                                            case 'thinking_start':
+                                                blocks[data.id] = createThinkingBlock(container, data.id);
+                                                break;
+                                                
+                                            case 'thinking_delta':
+                                                if (blocks[data.id]) {
+                                                    updateThinkingContent(blocks[data.id], data.content);
+                                                }
+                                                break;
+                                                
+                                            case 'thinking_end':
+                                                if (blocks[data.id]) {
+                                                    closeThinkingBlock(blocks[data.id]);
+                                                }
+                                                break;
+                                                
+                                            case 'tool_call':
+                                                blocks[data.id] = createToolBlock(container, data);
+                                                break;
+                                                
+                                            case 'tool_result':
+                                                if (blocks[data.id]) {
+                                                    updateToolResult(blocks[data.id], data);
+                                                }
+                                                break;
+                                                
+                                            case 'text_delta':
+                                                if (!textNode) {
+                                                    textNode = createFinalTextBlock(container);
+                                                }
+                                                fullResponse += data.content;
+                                                appendText(textNode, data.content);
+                                                break;
+                                                
+                                            case 'done':
+                                                if (textNode) {
+                                                    removeTypingCursor(textNode);
+                                                }
+                                                // closeSSE();
+                                                setAgentStatus('ready');
+                                                resolve(fullResponse);
+                                                break;
+                                                
+                                            case 'error':
+                                                addErrorMessage(container, data.message);
+                                                // closeSSE();
+                                                setAgentStatus('ready');
+                                                reject(new Error(data.message));
+                                                break;
+                                        }
+                                    } catch (e) {
+                                        console.error('解析事件数据错误:', e);
+                                    }
+                                }
+                            }
+
+                            return readStream();
+                        });
+                    }
+
+                    return readStream();
+                }).catch(error => {
+                    console.error('请求错误:', error);
+                    addErrorMessage(container, '连接服务器失败，请确保后端服务正在运行');
+                    setAgentStatus('ready');
+                    reject(error);
+                });
+            });
+        }
+        
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = "flex w-full gap-3 animate-fade-in flex-row-reverse";
+            
+            div.innerHTML = '<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground flex-shrink-0">' + 
+                ICONS.user + '</div><div class="flex flex-col items-end gap-1 max-w-[85%]">' +
+                '<div class="bg-primary text-primary-foreground px-4 py-3 rounded-lg rounded-tr-sm text-sm leading-relaxed shadow-sm">' + 
+                escapeHtml(text) + '</div></div>';
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addAgentMessageSkeleton() {
+            const row = document.createElement('div');
+            row.className = "flex w-full gap-3 animate-fade-in";
+            
+            const avatar = document.createElement('div');
+            avatar.className = "w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground border flex-shrink-0";
+            avatar.innerHTML = ICONS.bot;
+
+            const messageBody = document.createElement('div');
+            messageBody.className = "flex-1 space-y-3";
+
+            const header = document.createElement('div');
+            header.className = "text-xs font-medium text-muted-foreground";
+            header.textContent = "智能体助手";
+
+            messageBody.appendChild(header);
+            row.appendChild(avatar);
+            row.appendChild(messageBody);
+            chatContainer.appendChild(row);
+            scrollToBottom();
+
+            return { messageBody };
+        }
+
+        function createThinkingBlock(container, id) {
+            const card = document.createElement('div');
+            card.className = "border rounded-lg bg-background/50 overflow-hidden transition-all";
+            
+            const header = document.createElement('button');
+            header.className = "w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-xs font-medium text-muted-foreground text-left group";
+            
+            const iconContainer = document.createElement('div');
+            iconContainer.className = "flex items-center gap-2";
+            iconContainer.innerHTML = '<span class="text-muted-foreground/70">' + ICONS.brain + '</span> <span>🤔 正在思考...</span>';
+            
+            const icon = document.createElement('span');
+            icon.className = "text-muted-foreground transition-transform duration-200";
+            icon.innerHTML = ICONS.chevronDown;
+
+            header.appendChild(iconContainer);
+            header.appendChild(icon);
+            header.onclick = function() { toggleCollapse(content, icon); };
+
+            const content = document.createElement('div');
+            content.className = "border-t p-3 bg-background text-xs text-muted-foreground leading-relaxed code-block whitespace-pre-wrap max-h-96 overflow-y-auto";
+
+            card.appendChild(header);
+            card.appendChild(content);
+            container.appendChild(card);
+            scrollToBottom();
+
+            return { card, content };
+        }
+
+        function updateThinkingContent(block, text) {
+            block.content.textContent += text;
+            scrollToBottom();
+        }
+
+        function closeThinkingBlock(block) {
+            const header = block.card.querySelector('button');
+            const iconContainer = header.querySelector('div');
+            iconContainer.innerHTML = '<span class="text-muted-foreground/70">' + ICONS.brain + '</span> <span>✅ 思考完成</span>';
+        }
+
+        function createToolBlock(container, data) {
+            const card = document.createElement('div');
+            card.className = "border rounded-lg bg-background/50 overflow-hidden";
+            
+            const header = document.createElement('button');
+            header.className = "w-full flex items-center justify-between p-3 bg-muted/30 border-b border-l-4 border-l-primary hover:bg-muted/50 transition-colors cursor-pointer";
+            
+            const title = document.createElement('div');
+            title.className = "flex items-center gap-2";
+            title.innerHTML = '<span class="text-xs font-semibold text-foreground">🔧 ' + data.name + '</span>';
+
+            const statusIcon = document.createElement('div');
+            statusIcon.id = 'status-' + data.id;
+            statusIcon.innerHTML = '<span class="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700">⏳ 执行中...</span>';
+
+            const chevron = document.createElement('span');
+            chevron.className = "text-muted-foreground transition-transform duration-200 rotate-icon";
+            chevron.innerHTML = ICONS.chevronDown;
+
+            header.appendChild(title);
+            header.appendChild(statusIcon);
+            header.appendChild(chevron);
+
+            const body = document.createElement('div');
+            body.id = 'body-' + data.id;
+            body.className = "p-3 space-y-2 hidden-content";
+
+            const paramsDiv = document.createElement('div');
+            paramsDiv.className = "text-xs code-block bg-secondary/50 p-2 rounded text-secondary-foreground break-all";
+            paramsDiv.innerHTML = '<span class="opacity-50">// 输入参数</span>\n' + JSON.stringify(data.params, null, 2);
+            
+            const resultContainer = document.createElement('div');
+            resultContainer.id = 'result-' + data.id;
+
+            body.appendChild(paramsDiv);
+            body.appendChild(resultContainer);
+            card.appendChild(header);
+            card.appendChild(body);
+            
+            container.appendChild(card);
+            scrollToBottom();
+
+            header.onclick = function() { 
+                toggleCollapse(body, chevron); 
+            };
+
+            return { card, resultContainer, body };
+        }
+
+        function updateToolResult(block, data) {
+            const statusDiv = document.getElementById('status-' + data.id);
+            const resultContainer = document.getElementById('result-' + data.id);
+            
+            if (statusDiv) {
+                const statusClass = data.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
+                const icon = data.status === 'success' ? '✅' : '❌';
+                statusDiv.innerHTML = '<span class="text-[10px] px-2 py-0.5 rounded ' + statusClass + '">' + icon + ' ' + data.status.toUpperCase() + '</span>';
+            }
+            
+            if (resultContainer) {
+                const colorClass = data.status === 'success' ? 'text-emerald-600' : 'text-red-500';
+                resultContainer.innerHTML = '<div class="text-xs ' + colorClass + ' code-block"><span class="opacity-70">// 执行结果</span>\n' + data.output + '</div>';
+            }
+            
+            scrollToBottom();
+        }
+
+        function createFinalTextBlock(container) {
+            const bubble = document.createElement('div');
+            bubble.className = "text-sm leading-relaxed text-foreground p-4 border rounded-lg bg-background shadow-sm mt-4 typing-cursor";
+            container.appendChild(bubble);
+            scrollToBottom();
+            return bubble;
+        }
+
+        function appendText(element, text) {
+            const formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            element.innerHTML += formatted.replace(/\n/g, '<br>');
+            scrollToBottom();
+        }
+
+        function removeTypingCursor(element) {
+            element.classList.remove('typing-cursor');
+        }
+
+        function addErrorMessage(container, message) {
+            const bubble = document.createElement('div');
+            bubble.className = "text-sm leading-relaxed text-red-600 p-4 border border-red-200 rounded-lg bg-red-50";
+            bubble.textContent = '❌ ' + message;
+            container.appendChild(bubble);
+            scrollToBottom();
+        }
+
+        function toggleCollapse(content, iconEl) {
+            if (content.classList.contains('hidden-content')) {
+                content.classList.remove('hidden-content');
+                iconEl.classList.remove('rotate-icon');
+            } else {
+                content.classList.add('hidden-content');
+                iconEl.classList.add('rotate-icon');
+            }
+        }
+
+        function setAgentStatus(status) {
+            isProcessing = status === 'busy';
+            if (status === 'busy') {
+                statusDot.className = "w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse";
+                statusText.textContent = '正在思考...';
+                userInput.disabled = true;
+                sendBtn.disabled = true;
+            } else {
+                statusDot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+                statusText.textContent = '在线准备就绪';
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        function scrollToBottom() { 
+            chatContainer.scrollTop = chatContainer.scrollHeight; 
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        }
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")    // & → &amp;
+                .replace(/</g, "&lt;")     // < → &lt;
+                .replace(/>/g, "&gt;")     // > → &gt;
+                .replace(/"/g, "&quot;")   // " → &quot;
+                .replace(/'/g, "&#039;");  // ' → &#039;
+        }
+    </script>
+</body>
+</html>
+</html>
