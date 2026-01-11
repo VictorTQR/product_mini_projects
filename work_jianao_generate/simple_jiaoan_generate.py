@@ -102,6 +102,30 @@ def load_result_from_json(json_path: str) -> dict:
         result = json.load(f)
     return result
 
+def _sanitize_template_data(data: any) -> any:
+    """
+    清洗模板数据中的特殊字符，防止Jinja2模板解析错误
+
+    Args:
+        data: 原始数据（可以是字符串、字典、列表或其他类型）
+
+    Returns:
+        清洗后的数据
+    """
+    import html
+    if isinstance(data, str):
+        # 转义Jinja2模板特殊字符（< >）
+        return html.escape(data)
+    elif isinstance(data, dict):
+        # 递归清洗字典的值
+        return {key: _sanitize_template_data(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        # 递归清洗列表的元素
+        return [_sanitize_template_data(item) for item in data]
+    else:
+        # 其他类型保持不变
+        return data
+
 
 def save_result_to_word(result: dict, template_word_path: str, output_word_path: str):
     """
@@ -118,6 +142,9 @@ def save_result_to_word(result: dict, template_word_path: str, output_word_path:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     template_data = result
+
+    # 清洗模板数据中的特殊字符
+    template_data = _sanitize_template_data(template_data)
 
     # 渲染Word文档
     doc = DocxTemplate(template_word_path)
@@ -251,9 +278,10 @@ def test_generate_lesson_plan_simple():
 
 if __name__ == "__main__":
     # 配置参数
-    excel_path = "./output/人工智能通识.xlsx"
+    course = "网页设计"
+    excel_path = f"./output/{course}.xlsx"
     output_dir = "./output/output_workflow"
-    template_word_path = "./output/人工智能通识.docx"
+    template_word_path = f"./output/{course}.docx"
 
     # 测试生成教案的简单函数
     # test_generate_lesson_plan_simple()
@@ -264,5 +292,5 @@ if __name__ == "__main__":
         excel_path=excel_path,
         output_dir=output_dir,
         template_word_path=template_word_path,
-        model="glm-4-flash"
+        model="glm-4.5-flash"
     )
