@@ -47,7 +47,8 @@ def generate_lesson_plan_simple(lesson_info: dict) -> dict:
     """
     from src.graphs.jiaoan_graph.graph import create_jiaoan_graph
     agent = create_jiaoan_graph().compile()
-    result = agent.invoke({"lesson_info": lesson_info}, context={"plan_model": "glm-4.5-air"})
+    # result = agent.invoke({"lesson_info": lesson_info}, context={"plan_model": "glm-4.5-air"})
+    result = agent.invoke({"lesson_info": lesson_info}, context={"plan_model": "glm-4-flash"})
     return result
 
 
@@ -111,6 +112,9 @@ def save_result_to_word(result: dict, lesson_info: dict, template_word_path: str
 
     # 转换为模板数据
     template_data = _transform_data(jiaoan_data)
+    
+    # 清洗模板数据中的特殊字符
+    template_data = _sanitize_template_data(template_data)
 
     # 渲染Word文档
     doc = DocxTemplate(template_word_path)
@@ -172,6 +176,31 @@ def _transform_data(data: dict) -> dict:
                 template_data[f"{prefix}_yitu"] = item.get("教学意图", "")
     
     return template_data
+
+
+def _sanitize_template_data(data: any) -> any:
+    """
+    清洗模板数据中的特殊字符，防止Jinja2模板解析错误
+
+    Args:
+        data: 原始数据（可以是字符串、字典、列表或其他类型）
+
+    Returns:
+        清洗后的数据
+    """
+    import html
+    if isinstance(data, str):
+        # 转义Jinja2模板特殊字符（< >）
+        return html.escape(data)
+    elif isinstance(data, dict):
+        # 递归清洗字典的值
+        return {key: _sanitize_template_data(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        # 递归清洗列表的元素
+        return [_sanitize_template_data(item) for item in data]
+    else:
+        # 其他类型保持不变
+        return data
 
 
 def generate_and_save_single_lesson(lesson_info: dict, lesson_index: int, output_dir: str, template_word_path: str):
@@ -299,9 +328,10 @@ def test_generate_lesson_plan_simple():
 
 if __name__ == "__main__":
     # 配置参数
-    excel_path = "./output/小程序开发设计.xlsx"
+    course = "web前端开发"
+    excel_path = f"./output/{course}.xlsx"
     output_dir = "./output/output_workflow"
-    template_word_path = "./output/小程序开发设计.docx"
+    template_word_path = f"./output/{course}.docx"
 
     # 测试生成教案的简单函数
     # test_generate_lesson_plan_simple()
